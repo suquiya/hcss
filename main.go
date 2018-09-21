@@ -1,11 +1,8 @@
 package main
 
-import (
-	"flag"
-)
-
 func main() {
 
-	flag.Parse()
+	string := "$maincolor = {{ .Site.Params.MainColor }}\r\ndiv{color: $maincolor}"
 
+	css := hcss.Parse()
 }
