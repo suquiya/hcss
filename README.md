@@ -39,6 +39,7 @@ newline and ";" is interpreted as end of Var definition.
 + mixin
 + nest
 + Comment
++ Extend(I can not decide whether implement it or do not now.)
 
 ## Links
 + [Hugo][hugo]

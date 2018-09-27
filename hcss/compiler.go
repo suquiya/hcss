@@ -1,32 +1,35 @@
 package hcss
 
 import (
+	"fmt"
 	"strings"
 )
 
 //Compile parse hcss string
 const (
 	CSSExt       = ".css"
-	VMStr        = '$'
+	VMPrefix     = "$"
 	HugoTmpBegin = "{{"
 	HugoTmpEnd   = "}}"
 
-	CBBegin = '{'
-	CBEnd   = '}'
+	CBBegin = "{"
+	CBEnd   = "}"
 
-	RBBegin = '('
-	RBEnd   = ')'
+	RBBegin = "("
+	RBEnd   = ")"
 
-	EQ    = '='
-	COLON = ':'
+	EQ    = "="
+	COLON = ":"
 
 	NLC = "\r\n"
 
-	Normal     = 1
-	InVar      = 2
-	InMixIn    = 4
-	InHugoTmp  = 8
-	VarOrMixIn = 2 & 4
+	Normal  = 1
+	Var     = 2
+	Mix     = 4
+	HugoTmp = 8
+	UNKNOWN = 16
+	VMS     = "=:{"
+	VEnd    = ";\r\n"
 )
 
 //Compile compile hcss string to css string
@@ -34,51 +37,113 @@ func Compile(src string) string {
 
 	LineReplacer := strings.NewReplacer("\r\n", NLC, "\r", NLC, "\n", NLC)
 	src = LineReplacer.Replace(src)
-	p := NewProcess()
+	dsp := NewDataStorageForProcess()
 
-	nowStat := Normal
-	IsPrevBrackets := false
 	processing := true
-	srcLetters := []rune(src)
 
 	pos := 0
+	//SelectStyles := make(map[string]string)
+	src = strings.TrimSpace(src[pos:])
 	if processing {
-		srcLetter := srcLetters[pos]
-		if nowStat == Normal {
-			if srcLetter == CBBegin {
-				if IsPrevBrackets {
-					nowStat = InHugoTmp
-					endIndex := strings.Index(src, HugoTmpEnd) + len(HugoTmpEnd)
-					p.buf.WriteString(src[pos:endIndex])
-					pos = endIndex
-				}
+		if strings.HasPrefix(src, HugoTmpBegin) {
+
+			endIndex := strings.Index(src[len(HugoTmpBegin):], HugoTmpEnd) + len(HugoTmpEnd)
+			dsp.StringStorage = append(dsp.StringStorage, &StringData{src[:endIndex], HugoTmp})
+			src = src[endIndex:]
+		} else if strings.HasPrefix(src, VMPrefix) {
+			defname, contentIndex, which, err := VMNameStrip(src)
+			if err != nil {
+				fmt.Println(err)
+				return dsp.GetStorageStrings()
 			}
+			contentIndex++
+			src = src[contentIndex:]
+			if strings.Contains(defname, HugoTmpBegin) || strings.Contains(defname, HugoTmpEnd) {
+				serr := fmt.Errorf("You cannot use hugo template in variable name.\r\nName: %s", defname)
+				fmt.Println(serr)
+			}
+
+			if which&Var > 0 {
+				//if Variable
+				endIndex := strings.IndexAny(src, VEnd)
+				if endIndex < 0 {
+					serr := fmt.Errorf("end string ( ; or newLine) is missing")
+					fmt.Println(serr)
+					processing = false
+				} else {
+
+				}
+			} else {
+				//if mixin
+			}
+		} else {
+
 		}
-		pos++
 	}
 
-	return p.buf.String()
+	return dsp.GetStorageStrings()
 }
 
-//CProcess is data of process in compiling hcss
-type CProcess struct {
-	Variables map[string]*Variable
-	MixIns    map[string]*MixIn
-	buf       *strings.Builder
+//VMNameStrip strip name of var or mixin
+func VMNameStrip(src string) (string, int, int, error) {
+
+	sepIndex := strings.IndexAny(src, VMS)
+
+	if sepIndex < 0 {
+		err := fmt.Errorf("cannot strip name - not found : or = or {. If You define variables, you should use : or =. ")
+		return src, sepIndex, UNKNOWN, err
+	}
+	name := src[:sepIndex]
+	if strings.HasPrefix(src[sepIndex:], CBBegin) {
+		return name, sepIndex, Mix, nil
+	}
+	return name, sepIndex, Var, nil
 }
 
-//NewProcess create new Process
-func NewProcess() *CProcess {
+//DataStorageForProcess is data of process in compiling hcss
+type DataStorageForProcess struct {
+	Variables     map[string]*Variable
+	MixIns        map[string]*MixIn
+	StringStorage []*StringData
+}
+
+//GetStorageStrings get strings which is stored in dsp
+func (dsp *DataStorageForProcess) GetStorageStrings() string {
 
 	var sb strings.Builder
+	for _, sd := range dsp.StringStorage {
+		sb.WriteString(sd.Content)
+	}
+	return sb.String()
+}
 
-	return &CProcess{make(map[string]*Variable, 0), make(map[string]*MixIn, 0), &sb}
+//NewDataStorageForProcess create new Process
+func NewDataStorageForProcess() *DataStorageForProcess {
+	return &DataStorageForProcess{make(map[string]*Variable, 0), make(map[string]*MixIn, 0), make([]*StringData, 0)}
+}
+
+//StringData storage string data for output
+type StringData struct {
+	Content     string
+	ContentType int
+}
+
+//StyleInfo strange information for style
+type StyleInfo struct {
+	Content     string
+	ContentType int
 }
 
 //Variable represents data about a variable
 type Variable struct {
-	Content string
-	Type    string
+	Content        string
+	CompiledString string
+	ContentType    int
+}
+
+//NewVariable get new variable
+func NewVariable(vcontent string, vtype int) *Variable {
+	return &Variable{vcontent, "", vtype}
 }
 
 //MixIn represents data about MixIn
