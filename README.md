@@ -36,10 +36,12 @@ newline and ";" is interpreted as end of Var definition.
 
 ## TO DO
 
-+ mixin
-+ nest
-+ Comment
-+ Extend(I can not decide whether implement it or do not now.)
++ Add features
+  + mixin
+  + nest
+  + Comment
+  + Extend(I can not decide whether implement it or do not now.)
+  + Import
 
 ## Links
 + [Hugo][hugo]

@@ -20,15 +20,16 @@ const (
 
 	EQ    = "="
 	COLON = ":"
+	COMMA = ","
 
 	NLC = "\r\n"
 
-	Normal  = 1
-	Var     = 2
-	Mix     = 4
-	HugoTmp = 8
+	Normal  = 0
+	Var     = 1
+	Mix     = 2
+	HugoTmp = 4
 	UNKNOWN = 16
-	VMS     = "=:{"
+	VMS     = "=:("
 	VEnd    = ";\r\n"
 )
 
@@ -67,14 +68,24 @@ func Compile(src string) string {
 				//if Variable
 				endIndex := strings.IndexAny(src, VEnd)
 				if endIndex < 0 {
-					serr := fmt.Errorf("end string ( ; or newLine) is missing")
+					serr := fmt.Errorf("end string of %s: ( ; or newLine) is missing", defname)
 					fmt.Println(serr)
 					processing = false
 				} else {
-
+					dsp.Variables[defname] = NewVariable(src[:endIndex], Normal)
+					src = src[endIndex+1:]
 				}
 			} else {
 				//if mixin
+				argAreaEndIndex := strings.Index(src, RBEnd)
+				if argAreaEndIndex < 0 {
+					serr := fmt.Errorf("cannot purse argumant of %s", defname)
+					fmt.Println(serr)
+					return dsp.GetStorageStrings()
+				}
+
+				args := strings.Split(src[:argAreaEndIndex], COMMA)
+
 			}
 		} else {
 
@@ -94,7 +105,7 @@ func VMNameStrip(src string) (string, int, int, error) {
 		return src, sepIndex, UNKNOWN, err
 	}
 	name := src[:sepIndex]
-	if strings.HasPrefix(src[sepIndex:], CBBegin) {
+	if strings.HasPrefix(src[sepIndex:], RBBegin) {
 		return name, sepIndex, Mix, nil
 	}
 	return name, sepIndex, Var, nil
