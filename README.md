@@ -4,6 +4,8 @@ Generated CSS can be used in ExecuteAsTemplate(Part of Hugo Template remain).
 
 Inspired by scss and gcss syntax, but this may be simpler than sass(scss).
 
+@suquiya is a beginner of Go programming, So Contributions are very appropriated.
+
 ## Syntax
 ### Variables(Now implimating....)
 
