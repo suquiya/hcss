@@ -2,7 +2,6 @@ package hcss
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 )
 
@@ -43,7 +42,7 @@ const (
 	VEnd       = ";\r\n"
 )
 
-//Parse compile hcss string to css string
+//Parse parse hcss string
 func Parse(src string) *ParsedDataStorage {
 
 	LineReplacer := strings.NewReplacer("\r\n", NLC, "\r", NLC, "\n", NLC)
@@ -67,76 +66,79 @@ func Parse(src string) *ParsedDataStorage {
 			ds.StringStorage = append(ds.StringStorage, &StringData{src[:endIndex], HugoTmp})
 			src = src[endIndex:]
 		} else if strings.HasPrefix(src, VMPrefix) {
-			defname, contentIndex, which, err := VMNameStrip(src)
-			if err != nil {
-				fmt.Println(err)
-				return ds
-			}
-			contentIndex++
-			src = src[contentIndex:]
-			if strings.Contains(defname, HugoTmpBegin) || strings.Contains(defname, HugoTmpEnd) {
-				serr := fmt.Errorf("You cannot use hugo template in variable name.\r\nName: %s", defname)
-				fmt.Println(serr)
-			}
 
-			if which&Var > 0 {
-				//if Variable
-				endIndex := strings.IndexAny(src, VEnd)
-				if endIndex < 0 {
-					serr := fmt.Errorf("end string of %s: ( ; or newLine) is missing", defname)
-					fmt.Println(serr)
-					processing = false
-				} else {
-					ds.Variables[defname] = NewVariable(defname, src[:endIndex], Normal)
-					src = src[endIndex+1:]
-				}
-			} else {
-				//if mixin
-				argAreaEndIndex := strings.Index(src, RBEnd)
-				if argAreaEndIndex < 0 {
-					serr := fmt.Errorf("cannot purse argumant of %s", defname)
-					fmt.Println(serr)
+			/*
+				defname, contentIndex, which, CallORDef, err := VMEval(src)
+				if err != nil {
+					fmt.Println(err)
 					return ds
 				}
+				contentIndex++
+				src = src[contentIndex:]
+				if strings.Contains(defname, HugoTmpBegin) || strings.Contains(defname, HugoTmpEnd) {
+					serr := fmt.Errorf("You cannot use hugo template in variable name.\r\nName: %s", defname)
+					fmt.Println(serr)
+				}
 
-				mi := &MixIn{defname, nil, nil, ""}
-
-				args := strings.Split(src[:argAreaEndIndex], COMMA)
-				mi.ParamString = make([]string, 0, len(args))
-
-				argNameMap := make(map[string]bool)
-
-				for _, arg := range args {
-					arg = strings.TrimSpace(arg)
-
-					_, ae := argNameMap[arg]
-
-					if ae {
-						fmt.Printf("argument name %s  is duplicate", arg)
+				if which&Var > 0 {
+					//if Variable
+					endIndex := strings.IndexAny(src, VEnd)
+					if endIndex < 0 {
+						serr := fmt.Errorf("end string of %s: ( ; or newLine) is missing", defname)
+						fmt.Println(serr)
+						processing = false
+					} else {
+						ds.Variables[defname] = NewVariable(defname, src[:endIndex], Normal)
+						src = src[endIndex+1:]
 					}
-					mi.ParamString = append(mi.ParamString, arg)
-				}
-
-				tmp := make([]string, len(mi.ParamString), len(mi.ParamString))
-				copy(mi.ParamString, tmp)
-				mi.SortedParamString = StrSorter(tmp)
-				sort.Sort(mi.SortedParamString)
-				src = src[argAreaEndIndex+1:]
-				cb := strings.Index(src, CBBegin)
-				ce := strings.Index(src, CBEnd)
-				if cb < 0 || ce < 0 {
-					serr := fmt.Errorf("mixin definitation Error: missing { or }")
-					fmt.Println(serr)
-					processing = false
-				} else if cb < ce {
-					mi.Content = src[cb+1 : ce]
 				} else {
-					serr := fmt.Errorf("} exist before {")
-					fmt.Println(serr)
-					processing = false
-				}
+					//if mixin
+					argAreaEndIndex := strings.Index(src, RBEnd)
+					if argAreaEndIndex < 0 {
+						serr := fmt.Errorf("cannot purse argumant of %s", defname)
+						fmt.Println(serr)
+						return ds
+					}
 
-			}
+					mi := &MixIn{defname, nil, nil, ""}
+
+					args := strings.Split(src[:argAreaEndIndex], COMMA)
+					mi.ParamString = make([]string, 0, len(args))
+
+					argNameMap := make(map[string]bool)
+
+					for _, arg := range args {
+						arg = strings.TrimSpace(arg)
+
+						_, ae := argNameMap[arg]
+
+						if ae {
+							fmt.Printf("argument name %s  is duplicate", arg)
+						}
+						mi.ParamString = append(mi.ParamString, arg)
+					}
+
+					tmp := make([]string, len(mi.ParamString), len(mi.ParamString))
+					copy(mi.ParamString, tmp)
+					mi.SortedParamString = StrSorter(tmp)
+					sort.Sort(mi.SortedParamString)
+					src = src[argAreaEndIndex+1:]
+					cb := strings.Index(src, CBBegin)
+					ce := strings.Index(src, CBEnd)
+					if cb < 0 || ce < 0 {
+						serr := fmt.Errorf("mixin definitation Error: missing { or }")
+						fmt.Println(serr)
+						processing = false
+					} else if cb < ce {
+						mi.Content = src[cb+1 : ce]
+					} else {
+						serr := fmt.Errorf("} exist before {")
+						fmt.Println(serr)
+						processing = false
+					}
+
+				}
+			*/
 		} else {
 
 			if len(src) < 1 {
@@ -150,27 +152,26 @@ func Parse(src string) *ParsedDataStorage {
 	return ds
 }
 
-//VMNameStrip strip name of var or mixin
-func VMNameStrip(src string) (string, int, int, int, error) {
-
+//VMParse evaluate and parse
+func VMParse(src string, context int, pds *ParsedDataStorage) (string, bool, bool, *Variable, *MixIn, error) {
 	sepIndex := strings.IndexAny(src, VMS)
 
 	if sepIndex < 0 {
 		err := fmt.Errorf("cannot strip name - not found : or = or {. If You define variables, you should use : or =. ")
-		return "", src, sepIndex, UNKNOWN, err
+		return "", "", src, sepIndex, UNKNOWN, err
 	}
 	name := src[:sepIndex]
 	if strings.HasPrefix(src[sepIndex:], RBBegin) {
-		return "", name, sepIndex, Mix, nil
+		return "", "", name, sepIndex, Mix, nil
 	}
-	return "", name, sepIndex, Var, nil
+	return "", "", name, sepIndex, Var, nil
 }
 
 //ParsedDataStorage is data of process in compiling hcss
 type ParsedDataStorage struct {
 	Variables     map[string]*Variable
 	MixIns        map[string]*MixIn
-	StringStorage []*StringData
+	StringStorage []*Block
 }
 
 //GetStorageStrings get strings which is stored in dsp
@@ -188,8 +189,8 @@ func NewDataStorage() *ParsedDataStorage {
 	return &ParsedDataStorage{make(map[string]*Variable, 0), make(map[string]*MixIn, 0), make([]*StringData, 0)}
 }
 
-//StringData storage string data for output
-type StringData struct {
+//Block storage string data for output
+type Block struct {
 	Content     string
 	ContentType int
 }
