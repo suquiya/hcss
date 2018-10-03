@@ -62,7 +62,6 @@ func Parse(src string) *ParsedDataStorage {
 
 	processing := true
 
-	pos := 0
 	//SelectStyles := make(map[string]string)
 
 	if processing {
@@ -78,14 +77,14 @@ func Parse(src string) *ParsedDataStorage {
 //PartParse parse part of hcss string
 func PartParse(src string, pds *ParsedDataStorage, Cond int) (*ParsedDataStorage, string) {
 	if strings.HasPrefix(src, NLC) {
-		pds.Statements = append(pds.Statements, &BlockStatement{NewLineString(NLC), NewLine})
+		pds.Statements = append(pds.Statements, NewLineString(NLC))
 	}
 	src = strings.TrimSpace(src)
 
 	if strings.HasPrefix(src, HugoTmpBegin) {
 
 		endIndex := strings.Index(src[len(HugoTmpBegin):], HugoTmpEnd) + len(HugoTmpEnd)
-		pds.Statements = append(pds.Statements, &BlockStatement{HugoTemplate(src[:endIndex]), HugoTmp})
+		pds.Statements = append(pds.Statements, HugoTemplate(src[:endIndex]))
 		src = src[endIndex:]
 	} else if strings.HasPrefix(src, VMPrefix) {
 		VMParse(src, -1, pds)
@@ -97,18 +96,18 @@ func PartParse(src string, pds *ParsedDataStorage, Cond int) (*ParsedDataStorage
 }
 
 //VMParse evaluate and parse
-func VMParse(src string, DCType int, pds *ParsedDataStorage) (BlockStatement, bool, bool, *Variable, *MixIn, error) {
+func VMParse(src string, DCType int, pds *ParsedDataStorage) (Statement, bool, bool, *Variable, *MixIn, error) {
 	sepIndex := strings.IndexAny(src, VMS)
 
 	if sepIndex < 0 {
 		name := src
 		c, v := pds.Variables[name]
 		if v {
-			return &BlockStatement{c, CallVar}, true, true, nil, nil, nil
+			return Statement(c), true, true, nil, nil, nil
 		}
 		err := fmt.Errorf("Variable %s is not defined", name)
 		fmt.Println(err)
-		return &BlockStatement{src, ERROR}, true, false, nil, nil, err
+		return Statement(InvalidStatement(src)), true, false, nil, nil, err
 	}
 
 	sep := string(src[sepIndex])
@@ -157,7 +156,7 @@ func VMParse(src string, DCType int, pds *ParsedDataStorage) (BlockStatement, bo
 type ParsedDataStorage struct {
 	Variables  map[string]*Variable
 	MixIns     map[string]*MixIn
-	Statements []*BlockStatement
+	Statements []Statement
 }
 
 //GetStorageStrings get strings which is stored in dsp
@@ -174,18 +173,12 @@ func (dsp *ParsedDataStorage) GetStorageStrings() string {
 
 //NewDataStorage create new Data Storage
 func NewDataStorage() *ParsedDataStorage {
-	return &ParsedDataStorage{make(map[string]*Variable, 0), make(map[string]*MixIn, 0), make([]*BlockStatement, 0)}
+	return &ParsedDataStorage{make(map[string]*Variable, 0), make(map[string]*MixIn, 0), make([]Statement, 0)}
 }
 
-//Block storage parsed block data
-type Block interface {
+//Statement storage parsed block data
+type Statement interface {
 	WhichContentType() int
-}
-
-//Statement is block statement
-type Statement struct {
-	RelatedBlock []BlockData
-	ContentType  int
 }
 
 //StyleStatement strange information for style
@@ -229,4 +222,12 @@ type HugoTemplate string
 //WhichContentType retrun HugoTmplate ht's ContentType
 func (ht HugoTemplate) WhichContentType() int {
 	return HugoTmp
+}
+
+//InvalidStatement represents invalid statement
+type InvalidStatement string
+
+//WhichContentType of InvalidStatement return ERROR Type.
+func (is InvalidStatement) WhichContentType() int {
+	return ERROR
 }
