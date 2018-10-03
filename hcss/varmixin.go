@@ -3,27 +3,26 @@ package hcss
 //Variable represents data about a variable
 type Variable struct {
 	Name           string
-	Content        []Statement
+	Content        []ContentTyper
 	CompiledString string
-	ContentType    int
 }
 
 //VarCall is another name of string, for record calling variable
 type VarCall string
 
-//WhichContentType return VarCall v's ContentType
-func (v VarCall) WhichContentType() int {
+//ContentType return VarCall v's ContentType
+func (v VarCall) ContentType() int {
 	return CallVar
 }
 
-//WhichContentType return *variable v's ContentType and impliment interface BlockData
-func (v *Variable) WhichContentType() int {
-	return v.ContentType
+//ContentType return *variable v's ContentType and impliment interface BlockData
+func (v *Variable) ContentType() int {
+	return DefVar
 }
 
 //NewVariable get new variable
-func NewVariable(defname string, vcontent []Statement, vtype int) *Variable {
-	return &Variable{defname, vcontent, "", vtype}
+func NewVariable(defname string, vcontent []ContentTyper) *Variable {
+	return &Variable{defname, vcontent, ""}
 }
 
 //MixIn represents data about MixIn
@@ -32,12 +31,11 @@ type MixIn struct {
 	ParamNames        []string
 	SortedParamString StrSorter
 	Content           string
-	ContentType       int
 }
 
-//WhichContentType return *MixIn mi's ContentType
-func (mi *MixIn) WhichContentType() int {
-	return mi.ContentType
+//ContentType return *MixIn mi's ContentType
+func (mi *MixIn) ContentType() int {
+	return DefMix
 }
 
 //MinInCallArgs is struct for storage args in Call MixIn
@@ -45,5 +43,4 @@ type MinInCallArgs struct {
 	CalledMixinName string
 	Content         string
 	Args            map[string]string
-	ContentType     int
 }

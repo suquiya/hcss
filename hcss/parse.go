@@ -87,7 +87,11 @@ func PartParse(src string, pds *ParsedDataStorage, Cond int) (*ParsedDataStorage
 		pds.Statements = append(pds.Statements, HugoTemplate(src[:endIndex]))
 		src = src[endIndex:]
 	} else if strings.HasPrefix(src, VMPrefix) {
-		VMParse(src, -1, pds)
+		s, err := VMParse(src, -1, pds)
+		if err != nil {
+			fmt.Println(err)
+		}
+		pds.Statements = append(pds.Statements, s)
 	} else {
 
 	}
@@ -96,18 +100,21 @@ func PartParse(src string, pds *ParsedDataStorage, Cond int) (*ParsedDataStorage
 }
 
 //VMParse evaluate and parse
-func VMParse(src string, DCType int, pds *ParsedDataStorage) (Statement, bool, bool, *Variable, *MixIn, error) {
+func VMParse(src string, DCType int, pds *ParsedDataStorage) (ContentTyper, error) {
 	sepIndex := strings.IndexAny(src, VMS)
 
 	if sepIndex < 0 {
 		name := src
 		c, v := pds.Variables[name]
 		if v {
-			return Statement(c), true, true, nil, nil, nil
+			return c, nil
 		}
+
 		err := fmt.Errorf("Variable %s is not defined", name)
-		fmt.Println(err)
-		return Statement(InvalidStatement(src)), true, false, nil, nil, err
+		/*
+			fmt.Println(err)
+		*/
+		return InvalidStatement(src), err
 	}
 
 	sep := string(src[sepIndex])
@@ -149,14 +156,14 @@ func VMParse(src string, DCType int, pds *ParsedDataStorage) (Statement, bool, b
 
 	}
 
-	return nil, false, false, nil, nil, nil
+	return nil, fmt.Errorf("Cannot parse as Variable or MixIn! ")
 }
 
 //ParsedDataStorage is data of process in compiling hcss
 type ParsedDataStorage struct {
 	Variables  map[string]*Variable
 	MixIns     map[string]*MixIn
-	Statements []Statement
+	Statements []ContentTyper
 }
 
 //GetStorageStrings get strings which is stored in dsp
@@ -173,12 +180,12 @@ func (dsp *ParsedDataStorage) GetStorageStrings() string {
 
 //NewDataStorage create new Data Storage
 func NewDataStorage() *ParsedDataStorage {
-	return &ParsedDataStorage{make(map[string]*Variable, 0), make(map[string]*MixIn, 0), make([]Statement, 0)}
+	return &ParsedDataStorage{make(map[string]*Variable, 0), make(map[string]*MixIn, 0), make([]ContentTyper, 0)}
 }
 
-//Statement storage parsed block data
-type Statement interface {
-	WhichContentType() int
+//ContentTyper is interface for distinguish ContentType
+type ContentTyper interface {
+	ContentType() int
 }
 
 //StyleStatement strange information for style
@@ -189,45 +196,44 @@ type StyleStatement struct {
 
 //AtRule represents AtRule
 type AtRule struct {
-	Identifier  string
-	Str1        string
-	InBracket   string
-	ContentType int
+	Identifier string
+	Str1       string
+	InBracket  string
 }
 
-//WhichContentType return *AtRule a's ContentType
-func (a *AtRule) WhichContentType() int {
-	return a.ContentType
+//ContentType return *AtRule a's ContentType
+func (a *AtRule) ContentType() int {
+	return AtR
 }
 
 //ContentString is simple string.
 type ContentString string
 
-//WhichContentType return ContentString cs's ContentType
-func (cs ContentString) WhichContentType() int {
+//ContentType return ContentString cs's ContentType
+func (cs ContentString) ContentType() int {
 	return Normal
 }
 
 //NewLineString is new Line
 type NewLineString string
 
-//WhichContentType return typemark NewLine
-func (nls NewLineString) WhichContentType() int {
+//ContentType return typemark NewLine
+func (nls NewLineString) ContentType() int {
 	return NewLine
 }
 
 //HugoTemplate is another name of string for storage hugo template string
 type HugoTemplate string
 
-//WhichContentType retrun HugoTmplate ht's ContentType
-func (ht HugoTemplate) WhichContentType() int {
+//ContentType retrun HugoTmplate ht's ContentType
+func (ht HugoTemplate) ContentType() int {
 	return HugoTmp
 }
 
 //InvalidStatement represents invalid statement
 type InvalidStatement string
 
-//WhichContentType of InvalidStatement return ERROR Type.
-func (is InvalidStatement) WhichContentType() int {
+//ContentType of InvalidStatement return ERROR Type.
+func (is InvalidStatement) ContentType() int {
 	return ERROR
 }
