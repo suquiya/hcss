@@ -44,3 +44,8 @@ type MinInCallArgs struct {
 	Content         string
 	Args            map[string]string
 }
+
+//ContentType return *MinInCallArgs ContentType
+func (mica *MinInCallArgs) ContentType() int {
+	return CallMix
+}
