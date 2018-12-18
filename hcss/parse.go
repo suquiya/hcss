@@ -9,6 +9,7 @@ import (
 //Compile parse hcss string
 const (
 	CSSExt       = ".css"
+	HCSSExt      = ".hcss"
 	VMPrefix     = "$"
 	HugoTmpBegin = "{{"
 	HugoTmpEnd   = "}}"
@@ -54,10 +55,11 @@ const (
 	CallEnd        = ";{\r\n"
 	CallMixInBegin = "(:="
 	DefVarSep      = ":="
+	DefEnd         = ";\r\n"
 )
 
 //Parse parse hcss string
-func Parse(src string) *ParsedDataStorage {
+func Parse(src string) *ParsedData {
 
 	LineReplacer := strings.NewReplacer("\r\n", NLC, "\r", NLC, "\n", NLC)
 	src = LineReplacer.Replace(src)
@@ -80,7 +82,7 @@ func Parse(src string) *ParsedDataStorage {
 }
 
 //PartParse parse part of hcss string
-func PartParse(src string, pds *ParsedDataStorage, Cond int) (*ParsedDataStorage, string) {
+func PartParse(src string, pds *ParsedData, Cond int) (*ParsedData, string) {
 	if strings.HasPrefix(src, NLC) {
 		pds.Statements = append(pds.Statements, NewLineString(NLC))
 	}
@@ -115,7 +117,7 @@ func PartParse(src string, pds *ParsedDataStorage, Cond int) (*ParsedDataStorage
 }
 
 //VMParse evaluate and parse
-func VMParse(src string, DCType int, pds *ParsedDataStorage) (ContentTyper, string, error) {
+func VMParse(src string, DCType int, pds *ParsedData) (ContentTyper, string, error) {
 	sepIndex := strings.IndexAny(src, VMS)
 
 	if sepIndex < 0 {
@@ -134,7 +136,7 @@ func VMParse(src string, DCType int, pds *ParsedDataStorage) (ContentTyper, stri
 
 	sep := string(src[sepIndex])
 
-	name := strings.TrimLeftFunc(src[:sepIndex], unicode.IsSpace)
+	name := strings.TrimSpace(src[:sepIndex])
 	src = strings.TrimLeftFunc(src[sepIndex+1:], unicode.IsSpace)
 
 	dcType := DCType
@@ -180,22 +182,70 @@ func VMParse(src string, DCType int, pds *ParsedDataStorage) (ContentTyper, stri
 				} else if strings.Contains(DefVarSep, sep) {
 					dcType = CallMix
 
+					mica := NewMixInCallArgs(name)
+					argsEndIndex := strings.IndexAny(src, CallEnd)
+					argString := src[:argsEndIndex]
+
+					src = strings.TrimLeftFunc(src, IsNotNewLineSpace)
+
+					content := ""
+					var err error
+					if HasPrefixOfMixInContentBegin(src) {
+						endContent := strings.Index(src, CBEnd)
+
+						if endContent < 0 {
+							err = fmt.Errorf("MixIn's Content Missing")
+							fmt.Println(err)
+						} else {
+							content = src[1:endContent]
+							src = src[endContent+1:]
+						}
+					}
+					mica, err = mica.ArgsParse(mi, argString, content)
+					src = strings.TrimLeftFunc(src, unicode.IsSpace)
+					if strings.HasPrefix(src, SEMICOLON) {
+						src = src[1:]
+					}
+					return mica, src, err
+
 				} else if strings.Contains(CallEnd, sep) {
+					if sep == CBBegin {
+						mica := NewMixInCallArgs(name)
+						endContent := strings.Index(src, CBEnd)
+						var err error
+						var content string
+						if endContent < 0 {
+							err = fmt.Errorf("MixIn's Content Missing")
+							fmt.Println(err)
+						} else {
+							content = src[1:endContent]
+							src = src[endContent+1:]
+						}
+						mica, err = mica.ArgsParse(mi, "", content)
+						src = strings.TrimLeftFunc(src, unicode.IsSpace)
+						if strings.HasPrefix(src, SEMICOLON) {
+							src = src[1:]
+						}
+						return mica, src, err
+					}
 					dcType = CallVar
+					return VarCall(name), src, nil
 				} else {
 					if strings.Contains(DefVarSep, sep) {
 						dcType = DefVar
-					} else {
-						err := fmt.Errorf("invalid sep: %s", sep)
-						fmt.Println(err)
+						v, trimedString, err := GetVariableDefContentString(src)
 
-						panic(err)
-
+						src = trimedString
+						return NewSimpleVariable(name, v), src, err
 					}
+					err := fmt.Errorf("invalid sep: %s", sep)
+					fmt.Println(err)
+					panic(err)
 				}
 			} else {
 				if strings.Contains(DefVarSep, sep) {
 					dcType = DefVar
+
 				} else {
 					dcType = CallVar
 				}
@@ -215,8 +265,8 @@ func IsNotNewLineSpace(r rune) bool {
 	return false
 }
 
-//ParsedDataStorage is data of process in compiling hcss
-type ParsedDataStorage struct {
+//ParsedData is data of process in compiling hcss
+type ParsedData struct {
 	Variables  map[string]*Variable
 	MixIns     map[string]*MixIn
 	Statements []ContentTyper
@@ -235,8 +285,8 @@ func (dsp *ParsedDataStorage) GetStorageStrings() string {
 */
 
 //NewDataStorage create new Data Storage
-func NewDataStorage() *ParsedDataStorage {
-	return &ParsedDataStorage{make(map[string]*Variable, 0), make(map[string]*MixIn, 0), make([]ContentTyper, 0)}
+func NewDataStorage() *ParsedData {
+	return &ParsedData{make(map[string]*Variable, 0), make(map[string]*MixIn, 0), make([]ContentTyper, 0)}
 }
 
 //ContentTyper is interface for distinguish ContentType

@@ -30,6 +30,32 @@ func NewVariable(defname string, vcontent []ContentTyper) *Variable {
 	return &Variable{defname, vcontent, ""}
 }
 
+//NewVariable get new variable with no contents
+func NewEmptyVariable(defname string) *Variable {
+	return &Variable{defname, make([]ContentTyper, 0), ""}
+}
+//NewSimpleVariable
+func NewSimpleVariable(defname string, content string) *Variable {
+	vc := make([]ContentTyper, 0, 1)
+	vc = append(vc, ContentString(content))
+	return NewVariable(defname, vc, "")
+}
+
+//GetVariableDefContentString is subrutine for parse def variavle from string
+func GetVariableDefContentString(src string) (string, string, error) {
+	defEndIndex := strings.IndexAny(src, DefEnd)
+	if defEndIndex < 0 {
+		err := fmt.Errorf("Define Variable: EndString(\";\" or NewLine) is not found")
+
+		return src, "", err
+	}
+	contentStr := src[:defEndIndex]
+	if strings.HasPrefix(src[defEndIndex:], SEMICOLON) {
+		return contentStr, src[defEndIndex+1:], nil
+	}
+	return contentStr, src[defEndIndex+2:], nil
+}
+
 //MixIn represents data about MixIn
 type MixIn struct {
 	Name              string
