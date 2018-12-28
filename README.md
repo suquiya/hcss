@@ -1,6 +1,6 @@
 # hcss(WIP)
-hcss is pure Go css pre-processor. This is created for using process of site-creation with Hugo.
-Generated CSS can be used in ExecuteAsTemplate(Part of Hugo Template remain).
+hcss is pure Go css pre-processor. This is created for using process of site-creation with Golang HTML Template.
+Generated CSS can be used in ExecuteAsTemplate(Part of Go HTML Template remain).
 
 Inspired by scss and gcss syntax, but this may be simpler than sass(scss).
 
