@@ -4,7 +4,8 @@ Generated CSS can be used as Golang Template(Because of Part of Go HTML Template
 
 Inspired by scss and gcss syntax, but this may be simpler than sass(scss).
 
-@suquiya is a beginner of Go programming, So Contributions are very appropriated.
+suquiya is a beginner of Go programming, so pull requests and issues are appropriated.
+To be honest, please help suquiya...
 
 ## Syntax
 ### Variables(Now implimating....)
